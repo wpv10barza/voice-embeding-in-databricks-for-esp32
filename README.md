@@ -448,3 +448,41 @@ VOICE_DRAFT_STORE_PATH a un archivo en UC Volume escribible y
 despliegue el backend para disponer de persistencia entre reinicios.
 Ese fichero solo se admite para un backend de una instancia; no ofrece
 alta disponibilidad multirreplica ni elimina cortes fisicos de Wi-Fi.
+
+
+## Dictado iniciado desde el boton del ESP32 (sin introducir IDs en el panel)
+
+Una vez instalados el backend y firmware compatibles, el usuario
+presiona DICTAR PC dentro de EDITAR ORDEN 3C. Para habilitar
+la grabacion en el PC, abra una consola PowerShell en el directorio
+de este repositorio y ejecute:
+
+    .\scripts\Probar-Captura3C.ps1 -MicrofonoDispositivo 1 -Segundos 6
+    .\scripts\Escuchar-BotonESP32.ps1 -Iniciar -MicrofonoDispositivo 1
+
+El agente permanecera **en primer plano**, con consentimiento
+explicito del operador al iniciarlo; se detiene con Ctrl+C.
+El mic ID 1 corresponde a Realtek predeterminado en la computadora
+probada; compruebelo localmente con Probar-Captura3C.ps1 -Listar.
+
+Flujo:
+1. DICTAR PC -> Databricks /voice/capture/request (HTTP 202).
+2. Agente voluntario PowerShell reclama una sola peticion.
+3. El mic del PC graba 10 s; Gemini devuelve texto.
+4. PowerShell encola el borrador y espera ACK del ESP32.
+5. ESP32 reemplaza el texto de ejemplo por la transcripcion;
+   el operador revisa y pulsa ENVIAR 3C si es correcto.
+
+No es necesario ingresar el device_id en la pantalla. La seguridad
+exige la credencial Device API (y OAuth Databricks si aplica) ya
+provisionada, nunca visible en la pantalla. Si no se configuro
+ESP32_API_TOKEN como variable segura en Windows, el agente lo
+solicita una sola vez en un prompt oculto al iniciar.
+El boton NO hace que Windows escuche si el agente no esta ejecutandose.
+La app no tiene acceso directo al microfono remoto.
+
+Si aparece queued_for_editor despues de 90 s, la causa probable
+sigue siendo que el firmware no recibe su inbox por HTTPS.
+Usar Diagnosticar-Mirror3C.ps1 y monitor COM9 para observar
+voice_poll_http, voice_editor_deliveries y voice_ack_http;
+ninguna escritura de Sheets ocurre hasta la revision y aprobacion.
