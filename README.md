@@ -317,3 +317,53 @@ Wispr solo inserta texto como cualquier aplicación de dictado. No existe
 una conexión directa de Wispr Flow a tu App de Databricks implementada
 aquí. La bandeja 3C sigue requiriendo confirmación humana y no modifica
 Google Sheets automáticamente.
+
+
+## Octubre 2026: Solución de Gemini 404 NOT_FOUND
+
+`Probar-Gemini3C.ps1` mostró `Gemini HTTP real: 404` al consultar
+`gemini-2.5-flash`. Google restringe el acceso a esa generación para
+proyectos nuevos. En el backend actualizado se utiliza
+**`gemini-3.8-flash`** tanto para voz como para interpretación 3C;
+admite entrada de audio, está generalmente disponible y el
+código elimina controles de muestreo antiguos incompatibles.
+
+Código actualizado (CI aprobada):
+`wpv10barza/asistente-de-databricks--erp` commit
+`b2d8f64b0e968a337c49b0c4babca8078f979015`.
+
+### Implementar en Databricks
+
+```powershell
+databricks apps deploy asistente-cloud-erp `
+  --git-commit b2d8f64b0e968a337c49b0c4babca8078f979015 `
+  --profile asistente-cloud-erp `
+  --timeout 10m
+```
+
+Después actualizar scripts y verificar **primero los modelos visibles**
+mediante `GET /api/device/v1/voice/models` (protegido). Ese endpoint
+solo muestra nombres de una lista permitida, nunca credenciales.
+`Probar-Gemini3C.ps1` muestra la lista y, después, realiza una
+inferencia real con `gemini-3.8-flash`:
+
+```powershell
+git pull --ff-only origin main
+.\scripts\Probar-Gemini3C.ps1
+.\scripts\Activar-Microfono3C.ps1 -Motor Gemini
+```
+
+**ATENCIÓN:** una lista de modelos, `/voice/health` o CI verde no
+garantizan que la API funcione con la clave real ni que transcriba audio.
+La inferencia real puede consumir cuota y debe confirmarse desde Windows.
+
+Si `gemini-3.8-flash` no aparece en los modelos visibles de esa clave
+o devuelve otro 404, revisar acceso de la clave en Google AI Studio;
+el endpoint de modelos permite descubrir `gemini-3.6-flash` o
+`gemini-3.5-flash-lite` como alternativas. No repetir automáticamente
+una inferencia de pago ni enviar órdenes si el modelo falla.
+
+Fuentes:
+https://ai.google.dev/gemini-api/docs/models/gemini-2.5-flash
+https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash
+https://ai.google.dev/gemini-api/docs/generate-content/audio
