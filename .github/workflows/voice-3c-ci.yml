@@ -27,6 +27,18 @@ jobs:
             }
             Write-Host "PowerShell syntax OK: $path"
           }
+      - name: Validate Gemini WAV recording without microphone hardware
+        shell: pwsh
+        run: |
+          python tests/test_microphone_capture.py
+      - name: Check voice provider selection is explicit
+        shell: pwsh
+        run: |
+          $client = Get-Content scripts/Activar-Microfono3C.ps1 -Raw
+          foreach ($needle in @('-Motor', '"Gemini"', '"Wispr"', '"Windows"', 'Grabar-Microfono3C.py', 'Enviar-Voz3C.ps1', 'ESP32_API_TOKEN')) {
+            if (-not $client.Contains($needle)) { throw "Missing voice provider contract: $needle" }
+          }
+          if ($client.Contains('/apply')) { throw 'Voice engine must not apply Sheets' }
       - name: Check read-only diagnostic and safety
         shell: pwsh
         run: |
