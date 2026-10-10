@@ -28,7 +28,10 @@ def _get_audio_library():
 def show_inputs(sd=None) -> list[int]:
     sd = sd or _get_audio_library()
     default = sd.default.device
-    default_input = default[0] if isinstance(default, (tuple, list)) else default
+    try:
+        default_input = default[0]
+    except (TypeError, IndexError):
+        default_input = default
     available = []
     print("[MIC] Dispositivos de ENTRADA disponibles:")
     for i, entry in enumerate(sd.query_devices()):
