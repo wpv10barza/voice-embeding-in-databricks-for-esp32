@@ -12,8 +12,18 @@ param(
 )
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "Common3C.ps1")
-$headers = Get-3CHeaders -Profile $Profile -PromptDeviceToken
 $AppUrl = $AppUrl.TrimEnd("/")
+# /api/health needs no Device API token. Check the entire App BEFORE
+# asking for a private secret or blaming Sheets/Gemini for upstream 503.
+$headers = Get-3CHeaders -Profile $Profile
+$preflight = Invoke-3CRequest -Uri "$AppUrl/api/health" -Headers $headers
+if ($preflight.Status -ne 200) {
+    Write-Host "=== PREFLIGHT BLOQUEADO: /api/health HTTP $($preflight.Status) ===" -ForegroundColor Red
+    Write-Host "No es posible confirmar Google Sheets ni voz mientras Databricks no responda."
+    & (Join-Path $PSScriptRoot "Diagnosticar-App503.ps1") -AppUrl $AppUrl -Profile $Profile
+    exit 2
+}
+$headers = Get-3CHeaders -Profile $Profile -PromptDeviceToken
 $passed = 0
 $failed = 0
 
@@ -36,7 +46,7 @@ function Check-3C {
         elseif ($r.Status -eq 502) { Write-Host "  Falló lectura real de Google Sheets; comprobar clave SA y compartir la hoja." }
         elseif ($r.Status -eq 409) { Write-Host "  Se leyó la hoja, pero los encabezados no coinciden." }
         elseif ($r.Status -eq 0) { Write-Host "  $($r.Error)" }
-        elseif ($r.Status -eq 503) { Write-Host "  Servicio, Gemini o token Device API sin configurar." }
+        elseif ($r.Status -eq 503) { Write-Host "  Ruta 503: verificar detalle de la API; no implica que Gemini/Sheets hayan fallado." }
         elseif ($null -eq $r.Data) { Write-Host "  Respuesta no es JSON, posible portal de login." }
     }
     return $r
