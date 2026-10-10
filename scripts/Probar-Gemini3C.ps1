@@ -20,6 +20,19 @@ if ($health.Status -ne 200 -or -not $health.Data.ok) {
 }
 Write-Host "Modelo configurado: $($health.Data.transcription_model)"
 Write-Host "Clave enlazada: $($health.Data.model_configured)"
+Write-Host "Consultando modelos visibles para la clave de Databricks..."
+$models = Invoke-3CRequest -Uri "$base/api/device/v1/voice/models" -Headers $headers
+if ($models.Status -eq 200 -and $models.Data) {
+    $visible = @($models.Data.visible_models)
+    Write-Host ("Modelos detectados: " + ($visible -join ", "))
+    if ($models.Data.configured_model_visible -ne $true) {
+        Write-Warning "El modelo configurado NO aparece en la lista de la clave. Comprobar acceso."
+    }
+} elseif ($models.Status -eq 404) {
+    Write-Warning "La ruta /voice/models no esta desplegada en Databricks. Actualiza el backend."
+} else {
+    Write-Warning "No se pudo listar modelos (HTTP $($models.Status)); se intentara la inferencia."
+}
 Write-Host "Solicitando inferencia REAL de prueba (puede consumir cuota Gemini)..."
 $result = Invoke-3CRequest -Uri "$base/api/device/v1/voice/probe" -Headers $headers -Method POST
 if ($result.Status -eq 200 -and $result.Data.inference_confirmed -eq $true) {
