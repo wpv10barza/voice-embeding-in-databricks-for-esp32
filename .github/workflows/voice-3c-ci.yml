@@ -56,7 +56,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: wpv10barza/asistente-de-databricks--erp
-          ref: 8ce58259281e8bf3aedb01347f79f9ebab004ad9
+          ref: b2d8f64b0e968a337c49b0c4babca8078f979015
           path: cloud
       - uses: actions/setup-python@v5
         with:
@@ -67,4 +67,6 @@ jobs:
           cd cloud
           python -m pytest -q tests/test_voice_3c.py
           grep -q 'voice_provider_probe' app/main.py
+          grep -q 'voice_available_models' app/main.py
+          grep -q 'gemini-3.8-flash' app.yaml
           grep -q 'VoiceProviderError' app/voice_3c.py
