@@ -143,3 +143,51 @@ desplegado con el módulo `app/voice_3c.py` y la aplicación ESP32 debe
 ejecutar una imagen que incluya `pollVoiceDraft`. Los cambios de
 GitHub no actualizan por sí solos el backend desplegado ni la memoria
 flash del ESP32.
+
+
+## Dictado en vivo: EDITAR ORDEN 3C abierto
+
+No hace falta un micrófono ni un botón físico en el ESP32. Abra
+**EDITAR ORDEN 3C** en la pantalla y deje ese editor abierto, sin
+escribir nada manualmente. El firmware corregido muestra
+`VOZ PC: LISTO` y permite reemplazar su ejemplo de texto por el
+borrador recibido desde Databricks; protege cualquier texto que
+usted haya comenzado a editar con el teclado táctil.
+
+Abra **Windows PowerShell** (reconocimiento de voz español instalado),
+en la carpeta del cliente, y escriba:
+
+```powershell
+cd C:\Users\ASUS\erp-mantto-esp32\voice-embeding-in-databricks-for-esp32
+git pull --ff-only origin main
+.\scripts\Activar-Microfono3C.ps1
+```
+
+PowerShell mostrará `[DATABRICKS] LISTO` cuando la API y bandeja
+respondan. Pulse **ENTER en PowerShell** para activar el micrófono del
+PC, hable durante hasta 15 segundos, lea la transcripción y confirme
+con `S` si desea enviarla al editor. Se consultará el estado de
+entrega hasta `delivered_to_editor`. Pulse `X` para terminar la sesión
+de voz. **Nunca** hay escritura automática de Google Sheets.
+
+También admite una sola orden:
+
+```powershell
+.\scripts\Enviar-Voz3C.ps1 -Microfono -EsperarEntrega
+```
+
+**Qué realiza cada modo:** `-Microfono` es reconocimiento local de
+voz de Windows; usa Databricks como canal de entrega al ESP32, **no**
+es transcripción por Gemini. Si desea que **Gemini en Databricks**
+transcriba el audio, grabe un archivo WAV/MP3 en el PC y ejecute:
+
+```powershell
+.\scripts\Enviar-Voz3C.ps1 -AudioFile "C:\grabaciones\orden.wav" -EsperarEntrega
+```
+
+El resultado `model_configured=true` solo demuestra que hay clave
+configurada; una transcripción de audio correcta confirma una inferencia
+real de Gemini. Para verificar la entrega física es necesario tener
+el firmware corregido **instalado**, Wi-Fi/OAuth funcionales y el
+`device_id` correspondiente al cliente PowerShell. No confunda la
+compilación con el flasheo por COM9.
