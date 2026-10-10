@@ -1,4 +1,4 @@
-# Optional physical E2E probe: harmless draft to ESP32 edit screen.
+﻿# Optional physical E2E probe: harmless draft to ESP32 edit screen.
 # Never POSTs to /api/device/v1/commands or Google Sheets.
 [CmdletBinding()]
 param(
@@ -6,7 +6,8 @@ param(
     [string]$AppUrl = "https://asistente-cloud-erp-7474651957738908.aws.databricksapps.com",
     [string]$Profile = "asistente-cloud-erp",
     [string]$DeviceId = "panel-4848s040-3c-01",
-    [int]$TimeoutSeconds = 45
+    [int]$TimeoutSeconds = 45,
+    [string]$PanelUrl = ""
 )
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "Common3C.ps1")
@@ -40,5 +41,11 @@ while ((Get-Date) -lt $deadline) {
     }
     Write-Host ("Estado: " + $status.Data.status)
 }
-Write-Warning "Sin confirmación del ESP32 dentro del plazo. Revisar Wi-Fi, firmware, device_id, OAuth y la bandeja (TTL 15 min)."
+Write-Warning "El borrador quedo en queued_for_editor. Es entrega no confirmada, no un error de Google Sheets."
+if ($PanelUrl) {
+    Write-Host "Diagnostico adicional de firmware y tarea de voz del ESP32:"
+    & (Join-Path $PSScriptRoot "Diagnosticar-PanelESP32.ps1") -PanelUrl $PanelUrl -ExpectedDeviceId $DeviceId
+} else {
+    Write-Host "Para localizar la causa, ejecute Diagnosticar-PanelESP32.ps1 -PanelUrl http://IP_DEL_ESP32"
+}
 exit 2
