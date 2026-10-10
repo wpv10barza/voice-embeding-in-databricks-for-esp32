@@ -1,4 +1,4 @@
-# Common authenticated REST helpers. Dot-source; no execution on import.
+﻿# Common authenticated REST helpers. Dot-source; no execution on import.
 Set-StrictMode -Version Latest
 
 function Get-3CHeaders {
