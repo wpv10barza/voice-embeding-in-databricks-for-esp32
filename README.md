@@ -62,6 +62,52 @@ Se tomó como referencia conceptual el flujo Gemini Live del archivo
 OmniBot aportado por el usuario, sin copiar su servidor local ni sus
 dependencias de robots y reconocimiento facial.
 
+## Si `Probar-EntregaEditor.ps1` queda en queued_for_editor
+
+**La API acepta el borrador, pero el ESP32 todavía no ha acusado recibo.**
+No implica fallo de Google Sheets. Primero compruebe si el firmware fue
+**cargado físicamente**: `pio run` compila y `pio run -t upload` flashea.
+
+En el panel, abra **Wi-Fi 2.4 GHz** y copie la **IP local**, sin compartir
+contraseñas. Desde PowerShell, en la carpeta de este repositorio:
+
+```powershell
+.\scripts\Diagnosticar-PanelESP32.ps1 -PanelUrl "http://IP_LOCAL_DEL_ESP32"
+
+.\scripts\Probar-EntregaEditor.ps1 -EjecutarPrueba `
+  -PanelUrl "http://IP_LOCAL_DEL_ESP32"
+```
+
+El diagnóstico es de **solo lectura** y muestra el commit realmente
+instalado, `device_id`, conexión Wi-Fi, las consultas de voz y sus
+HTTP, el acuse de recibo y si hubo un borrador abierto en el editor.
+El firmware principal contiene ahora **reintentos del ACK** cada 6 s.
+
+Si `/health` no presenta `voice_poll_count`, se está ejecutando un
+firmware anterior a la actualización de diagnóstico. La compilación
+`SUCCESS` en Windows no basta: conecte COM9 (o el COM realmente
+detectado) y ejecute:
+
+```powershell
+cd "$HOME\erp-mantto-esp32"
+git pull --ff-only origin main
+py -m platformio run -e panel_4848s040 -t upload --upload-port COM9
+py -m platformio device monitor --port COM9 --baud 115200
+```
+
+Si el contador `voice_poll_count` aumenta pero el HTTP no es 200,
+resuelva el estado indicado (OAuth M2M, Device API token, permisos
+Databricks Apps o endpoint). Si el `device_id` local es distinto,
+utilice el ID verdadero en `-DeviceId` al enviar el borrador.
+Si `voice_poll_http=200` con bandeja vacía pero PowerShell ve un
+borrador pendiente, compruebe que ambas solicitudes alcanzan la misma
+instancia Databricks: la bandeja actual es en memoria y no soporta
+garantías entre réplicas o reinicios.
+
+Los borradores caducan a los 15 minutos. No se modifica Google Sheets.
+Las cadenas con acentos se interpretan correctamente desde Windows
+PowerShell 5.1 porque los scripts se guardaron con codificación UTF-8 BOM.
+
 ## Uso en Windows PowerShell
 
 Los comandos se ejecutan **en Windows**, dentro de la carpeta
