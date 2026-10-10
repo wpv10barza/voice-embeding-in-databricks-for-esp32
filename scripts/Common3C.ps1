@@ -49,7 +49,23 @@ function Invoke-3CRequest {
     try {
         $response = Invoke-WebRequest @args
         $statusCode = [int]$response.StatusCode
+        # Windows PowerShell 5.1 can decode application/json without charset as
+        # ISO-8859-1, corrupting e.g. "micrófono" to "micrÃ³fono".
+        # Decode original HTTP bytes as JSON UTF-8, never the displayed string.
         $raw = [string]$response.Content
+        $rawStream = $response.RawContentStream
+        if ($null -ne $rawStream -and $rawStream.CanSeek) {
+            $originalPosition = $rawStream.Position
+            try {
+                $rawStream.Position = 0
+                $utf8Reader = New-Object System.IO.StreamReader(
+                    $rawStream, (New-Object System.Text.UTF8Encoding($false)),
+                    $true, 1024, $true
+                )
+                try { $raw = $utf8Reader.ReadToEnd() }
+                finally { $utf8Reader.Dispose() }
+            } finally { $rawStream.Position = $originalPosition }
+        }
     } catch {
         $statusCode = 0
         $raw = ""
@@ -59,7 +75,7 @@ function Invoke-3CRequest {
             try {
                 $stream = $_.Exception.Response.GetResponseStream()
                 if ($stream) {
-                    $reader = New-Object System.IO.StreamReader($stream)
+                    $reader = New-Object System.IO.StreamReader($stream, [Text.Encoding]::UTF8)
                     try { $raw = $reader.ReadToEnd() }
                     finally { $reader.Dispose() }
                 }
