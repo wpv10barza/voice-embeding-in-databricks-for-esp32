@@ -64,7 +64,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: wpv10barza/asistente-de-databricks--erp
-          ref: 09300d18689b32a53408f234201ec3e70017ec37
+          ref: ade0bcd9c2f33018d339a3be3041be4bb41e8e47
           path: cloud
       - uses: actions/setup-python@v5
         with:
