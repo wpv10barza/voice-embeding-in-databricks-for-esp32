@@ -2,12 +2,18 @@
 # Example: .\scripts\Diagnosticar-PanelESP32.ps1 -PanelUrl http://192.168.1.23
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][string]$PanelUrl,
+    [string]$PanelUrl = "",
     [string]$ExpectedDeviceId = "panel-4848s040-3c-01",
     [string]$ExpectedCommit = "",
     [int]$WaitSeconds = 12
 )
 $ErrorActionPreference = "Stop"
+# The cloud mirror does not require the panel's DHCP address.
+if (-not $PanelUrl -or $PanelUrl -match '(?i)(IP_REAL_DEL_ESP32|IP_LOCAL_DEL_ESP32|IP_DEL_ESP32)') {
+    Write-Warning "No se indico la IP real del ESP32. Se consultara el espejo Databricks (solo lectura)."
+    & (Join-Path $PSScriptRoot "Diagnosticar-Mirror3C.ps1") -DeviceId $ExpectedDeviceId
+    return
+}
 $base = $PanelUrl.TrimEnd("/")
 if ($base -notmatch '^http://[^/]+$') {
     throw "PanelUrl debe ser http://IP_LOCAL_DEL_ESP32, sin credenciales ni rutas."
