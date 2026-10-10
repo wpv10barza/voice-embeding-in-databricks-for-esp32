@@ -425,3 +425,26 @@ Compruebe `fw_commit`, `device_id`, `voice_poll_count`,
 `http://IP_DEL_ESP32`. La cola actual de Databricks es en memoria;
 replicas o reinicios pueden provocar entregas pendientes. No se envían
 órdenes finales ni cambios a Sheets sin aprobación humana.
+
+
+## Espejo de conexión cloud (sin la IP LAN del ESP32)
+
+Con el backend Databricks actualizado, consulte desde PowerShell:
+- .\scripts\Diagnosticar-Mirror3C.ps1
+- .\scripts\Diagnosticar-PanelESP32.ps1
+
+El segundo comando ahora recurre al espejo Databricks si omite la IP o
+escribe un texto de ejemplo IP_REAL_DEL_ESP32. Se necesita el token de
+Device API y, si corresponde, OAuth del perfil de Databricks. Los
+endpoints consultados son de solo lectura; no ejecutan ordenes ni
+escriben Google Sheets.
+
+La consulta /api/device/v1/voice/sync comprueba si el ESP32 consulto
+su bandeja HTTPS recientemente (sin IP LAN), cuantos borradores siguen
+pendientes y cuantos recibieron ACK. Estado panel_seen_recently=true
+NO garantiza que la pantalla este abierta ni que una orden se haya
+aplicado. Si el backend muestra memory_only, configure la variable
+VOICE_DRAFT_STORE_PATH a un archivo en UC Volume escribible y
+despliegue el backend para disponer de persistencia entre reinicios.
+Ese fichero solo se admite para un backend de una instancia; no ofrece
+alta disponibilidad multirreplica ni elimina cortes fisicos de Wi-Fi.
