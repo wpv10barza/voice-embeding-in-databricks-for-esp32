@@ -486,3 +486,12 @@ sigue siendo que el firmware no recibe su inbox por HTTPS.
 Usar Diagnosticar-Mirror3C.ps1 y monitor COM9 para observar
 voice_poll_http, voice_editor_deliveries y voice_ack_http;
 ninguna escritura de Sheets ocurre hasta la revision y aprobacion.
+
+
+## Emparejamiento automatico del panel real
+
+El agente Windows admite autodeteccion de un unico panel que haya pulsado DICTAR PC:
+
+    .\scripts\Escuchar-BotonESP32.ps1 -Iniciar -MicrofonoDispositivo 1
+
+No requiere escribir el device_id predeterminado en la consola o en la pantalla. Databricks entrega al agente el device_id autenticado incluido en la peticion de captura; ese mismo ID se utiliza para encolar y consultar el borrador. Con dos dispositivos solicitando a la vez, se rechaza el emparejamiento automatico (HTTP 409); seleccione -DeviceId explicitamente. El agente debe estar voluntariamente abierto, autenticado y el backend actualizado.

@@ -6,7 +6,7 @@ param(
     [Parameter(Mandatory)][switch]$Iniciar,
     [string]$AppUrl = "https://asistente-cloud-erp-7474651957738908.aws.databricksapps.com",
     [string]$Profile = "asistente-cloud-erp",
-    [string]$DeviceId = "panel-4848s040-3c-01",
+    [string]$DeviceId = "",
     [int]$MicrofonoDispositivo = 1,
     [ValidateRange(5,20)][int]$Segundos = 10,
     [ValidateRange(2,15)][int]$IntervaloSegundos = 3,
@@ -26,10 +26,14 @@ $auth = Invoke-3CRequest -Uri "$base/api/device/v1/voice/health" -Headers $heade
 if ($auth.Status -ne 200 -or $null -eq $auth.Data) {
     throw "Backend de voz no disponible HTTP $($auth.Status). Comprobar deployment/OAuth."
 }
-$agentPath = "$base/api/device/v1/voice/capture/next?device_id=" + [uri]::EscapeDataString($DeviceId)
+$agentPath = "$base/api/device/v1/voice/capture/next"
+if (-not [string]::IsNullOrWhiteSpace($DeviceId)) {
+    $agentPath += "?device_id=" + [uri]::EscapeDataString($DeviceId)
+}
 $recordScript = Join-Path $PSScriptRoot "Grabar-Microfono3C.py"
 Write-Host "=== AGENTE EXPLICITO DE DICTADO: ESP32 -> WINDOWS -> GEMINI -> ESP32 ===" -ForegroundColor Cyan
 Write-Host "PC: micrófono ID $MicrofonoDispositivo | $Segundos segundos cuando se pulse DICTAR PC."
+Write-Host ("Destino: " + $(if ($DeviceId) { $DeviceId } else { "AUTO (unico ESP32 que solicita dictado)" }))
 Write-Host "El equipo PC debe seguir encendido y esta consola abierta. Ctrl+C para detener."
 Write-Host "Un toque al botón del ESP32 autoriza una sola grabación. No se modifican Sheets."
 $previous = $env:ESP32_API_TOKEN
@@ -42,6 +46,11 @@ try {
             if ($response.Status -eq 404) {
                 throw "Falta el endpoint /voice/capture/next: desplegar backend nuevo."
             }
+            if ($response.Status -eq 409) {
+                Write-Warning "Hay mas de un panel solicitando microfono. Ejecute con -DeviceId para elegir."
+                Start-Sleep -Seconds $IntervaloSegundos
+                continue
+            }
             if ($response.Status -ne 200) {
                 Write-Warning "Bandeja de captura: HTTP $($response.Status). Reintentando."
                 Start-Sleep -Seconds $IntervaloSegundos
@@ -53,8 +62,15 @@ try {
                 continue
             }
             $captureId = [string]$capture.id
+            $targetDeviceId = [string]$capture.device_id
+            if ($targetDeviceId -notmatch '^[A-Za-z0-9._:-]{1,96}$') {
+                throw "Databricks devolvio un device_id invalido."
+            }
+            if ($DeviceId -and $targetDeviceId -ne $DeviceId) {
+                throw "El device_id de la solicitud no coincide con el configurado."
+            }
             if ($captureId -notmatch '^[0-9a-fA-F-]{36}$') { throw "ID de captura inválido." }
-            Write-Host "[PANEL] Solicitud táctil recibida. Iniciando micrófono Realtek ID $MicrofonoDispositivo." -ForegroundColor Green
+            Write-Host "[PANEL] Solicitud recibida desde $targetDeviceId. Microfono Realtek ID $MicrofonoDispositivo." -ForegroundColor Green
             $wav = Join-Path ([IO.Path]::GetTempPath()) ("voice-3c-" + [guid]::NewGuid().ToString("N") + ".wav")
             $success = $false
             try {
@@ -77,7 +93,7 @@ try {
                 Write-Host "[GEMINI] $text" -ForegroundColor Cyan
                 # The capture UUID is the idempotent request ID for PC retries.
                 $queued = Invoke-3CRequest -Uri "$base/api/device/v1/voice/drafts" -Headers $headers -Method POST -Body @{
-                    device_id = $DeviceId; text = $text; request_id = "capture-$captureId"
+                    device_id = $targetDeviceId; text = $text; request_id = "capture-$captureId"
                 }
                 if ($queued.Status -ne 202 -or -not $queued.Data.draft_id) {
                     throw "Databricks no pudo colocar el borrador en bandeja (HTTP $($queued.Status))."
@@ -90,7 +106,7 @@ try {
             } finally {
                 Remove-Item -LiteralPath $wav -Force -ErrorAction SilentlyContinue
                 $finish = Invoke-3CRequest -Uri "$base/api/device/v1/voice/capture/$captureId/complete" -Headers $headers -Method POST -Body @{
-                    device_id = $DeviceId; success = $success
+                    device_id = $targetDeviceId; success = $success
                 }
                 if ($finish.Status -ne 200) { Write-Warning "No se pudo confirmar captura: HTTP $($finish.Status)" }
             }
@@ -101,7 +117,7 @@ try {
                     Start-Sleep -Seconds 3
                     # The draft status API requires a matching device_id.
                     $status = Invoke-3CRequest -Uri ("$base/api/device/v1/voice/drafts/$draftId" +
-                        "?device_id=" + [uri]::EscapeDataString($DeviceId)) -Headers $headers
+                        "?device_id=" + [uri]::EscapeDataString($targetDeviceId)) -Headers $headers
                     if ($status.Status -ne 200) {
                         Write-Warning "Consulta de entrega HTTP $($status.Status)"
                         break
