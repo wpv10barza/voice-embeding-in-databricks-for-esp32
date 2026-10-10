@@ -1,0 +1,56 @@
+name: Voice 3C PowerShell and Databricks contracts
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  powershell:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse Windows PowerShell scripts without running them
+        shell: pwsh
+        run: |
+          foreach ($path in (Get-ChildItem -Path scripts -Filter *.ps1).FullName) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              $path, [ref]$tokens, [ref]$errors) > $null
+            if ($errors.Count) {
+              $errors | ForEach-Object { Write-Error "$path : $($_.Message)" }
+              exit 1
+            }
+            Write-Host "PowerShell syntax OK: $path"
+          }
+      - name: Check read-only diagnostic and safety
+        shell: pwsh
+        run: |
+          $diag = Get-Content scripts/Probar-Extremo3C.ps1 -Raw
+          $client = Get-Content scripts/Enviar-Voz3C.ps1 -Raw
+          if (-not $diag.Contains('/api/device/v1/cloud/verify')) { throw 'Missing Sheets verification' }
+          if ($diag.Contains('batchUpdate') -or $diag.Contains('/apply')) { throw 'Diagnostic must be read-only' }
+          if (-not $client.Contains('/api/device/v1/voice/drafts')) { throw 'Missing voice draft endpoint' }
+          if ($client.Contains('/api/review/proposals/') -and $client.Contains('/apply')) { throw 'Voice must not apply Sheets' }
+
+  backend-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: wpv10barza/asistente-de-databricks--erp
+          ref: a042ac350b970707fc54c1a9b37cbe83a5864129
+          path: cloud
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify cloud voice implementation and auth
+        run: |
+          python -m pip install -r cloud/requirements.txt
+          cd cloud
+          python -m pytest -q tests/test_voice_3c.py
