@@ -1,13 +1,17 @@
-﻿# Interactive Windows microphone: Enter to speak, X to exit.
-# Windows Speech Recognition transcribes locally, Databricks queues a draft,
-# ESP32 displays it for manual confirmation. No Sheets writes.
+﻿# Alternative voice engines for Windows -> Databricks -> ESP32 3C drafts.
+# Gemini: records WAV locally, transcribes with Databricks Gemini API.
+# Wispr: Wispr Flow inserts text in focused PowerShell prompt, then queues it.
+# Windows: legacy Windows Speech engine (fallback only).
+# Every draft requires confirmation; no Sheet writes.
 [CmdletBinding()]
 param(
+    [ValidateSet("Gemini", "Wispr", "Windows")][string]$Motor = "Gemini",
     [string]$AppUrl = "https://asistente-cloud-erp-7474651957738908.aws.databricksapps.com",
     [string]$Profile = "asistente-cloud-erp",
     [string]$DeviceId = "panel-4848s040-3c-01",
-    [ValidateRange(5,40)][int]$TiempoMaxSegundos = 15,
-    [ValidateRange(10,180)][int]$EsperaSegundos = 60
+    [ValidateRange(5, 25)][int]$TiempoMaxSegundos = 10,
+    [ValidateRange(10, 180)][int]$EsperaSegundos = 60,
+    [int]$MicrofonoDispositivo = -1
 )
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "Common3C.ps1")
@@ -21,25 +25,63 @@ if ($health.Status -ne 200 -or -not $health.Data.ok) {
     throw "Databricks no esta listo: API Voz 3C HTTP $($health.Status)."
 }
 Write-Host "[DATABRICKS] LISTO - API voz 3C accesible" -ForegroundColor Green
-Write-Host "Gemini configurado: $($health.Data.model_configured) (sin inferencia probada)"
-Write-Host "Micrófono: PC Windows, dictado local de Windows."
-Write-Host "Dispositivo destino: $DeviceId"
-Write-Host "Deja EDITAR ORDEN 3C abierto. NO pulses ENVIAR 3C antes de revisar el texto."
-Write-Host "Este script no modifica Google Sheets."
+Write-Host "Modelo Gemini configurado: $($health.Data.transcription_model)"
+Write-Host "Configuracion Gemini disponible: $($health.Data.model_configured) (inferencia aun no probada)"
+Write-Host "Motor seleccionado: $Motor"
+Write-Host "Destino: $DeviceId"
+Write-Host "Deja EDITAR ORDEN 3C abierto en el ESP32; no envies el texto sin revisarlo."
+if ($Motor -eq "Gemini") {
+    if (-not (Get-Command py -ErrorAction SilentlyContinue)) {
+        throw "Necesitas el lanzador Python de Windows 'py' para grabar WAV. No se usa el reconocedor de voz Windows."
+    }
+    Write-Host "[GEMINI] El PC graba WAV y Databricks hace la transcripcion real."
+    Write-Host "[PRIMER USO] Si falta sounddevice: py -m pip install sounddevice"
+} elseif ($Motor -eq "Wispr") {
+    Write-Host "[WISPR FLOW] Inicia Wispr Flow en Windows y manten el foco en la consola al dictar."
+    Write-Host "Activa Wispr con Ctrl+Win (si tienes el atajo predeterminado) y comprueba el texto antes de confirmar."
+    Write-Host "Wispr pega texto en PowerShell. No se usa una API Wispr en Databricks."
+} else {
+    Write-Warning "Se usa el reconocedor local de Windows que genero transcripciones incorrectas."
+}
 $previous = $env:ESP32_API_TOKEN
 try {
     $env:ESP32_API_TOKEN = [string]$headers["X-3C-Device-Token"]
     while ($true) {
-        $choice = Read-Host "ENTER = ACTIVAR MICROFONO / X = salir"
+        $choice = Read-Host "ENTER = DICTAR CON $Motor / X = salir"
         if ($choice -in @("x", "X", "salir", "SALIR")) { break }
         if ($choice -ne "") { continue }
         try {
-            & (Join-Path $PSScriptRoot "Enviar-Voz3C.ps1") -Microfono -AppUrl $base -Profile $Profile -DeviceId $DeviceId -TiempoMaxSegundos $TiempoMaxSegundos -EsperarEntrega -EsperaSegundos $EsperaSegundos
-            Write-Host "Listo para otra orden. Presiona ENTER cuando quieras hablar."
+            if ($Motor -eq "Wispr") {
+                Write-Host "En el siguiente prompt, use el atajo de Wispr Flow; revise la frase y pulse ENTER."
+                $dictado = Read-Host "WISPR FLOW - dicta aqui tu orden 3C"
+                if ([string]::IsNullOrWhiteSpace($dictado)) {
+                    Write-Warning "No se recibio texto de Wispr; no se enviara nada."
+                    continue
+                }
+                Write-Host "[WISPR] Texto capturado: $dictado"
+                & (Join-Path $PSScriptRoot "Enviar-Voz3C.ps1") -Texto $dictado -AppUrl $base -Profile $Profile -DeviceId $DeviceId -EsperarEntrega -EsperaSegundos $EsperaSegundos
+            } elseif ($Motor -eq "Windows") {
+                & (Join-Path $PSScriptRoot "Enviar-Voz3C.ps1") -Microfono -AppUrl $base -Profile $Profile -DeviceId $DeviceId -TiempoMaxSegundos $TiempoMaxSegundos -EsperarEntrega -EsperaSegundos $EsperaSegundos
+            } else {
+                $wav = Join-Path ([IO.Path]::GetTempPath()) ("orden3c-" + [Guid]::NewGuid().ToString("N") + ".wav")
+                try {
+                    $args = @((Join-Path $PSScriptRoot "Grabar-Microfono3C.py"), "--seconds", [string]$TiempoMaxSegundos, "--output", $wav)
+                    if ($MicrofonoDispositivo -ge 0) { $args += @("--device", [string]$MicrofonoDispositivo) }
+                    & py @args
+                    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $wav)) {
+                        throw "No se pudo grabar el microfono. Si falta la libreria: py -m pip install sounddevice"
+                    }
+                    & (Join-Path $PSScriptRoot "Enviar-Voz3C.ps1") -AudioFile $wav -AppUrl $base -Profile $Profile -DeviceId $DeviceId -EsperarEntrega -EsperaSegundos $EsperaSegundos
+                } finally {
+                    if (Test-Path -LiteralPath $wav) {
+                        Remove-Item -LiteralPath $wav -Force -ErrorAction SilentlyContinue
+                    }
+                }
+            }
         } catch {
             Write-Warning "Orden no completada: $($_.Exception.Message)"
-            Write-Host "Puedes intentar otra vez sin cerrar PowerShell."
         }
+        Write-Host "Listo para otra orden. Presiona ENTER o X para salir."
     }
 } finally {
     if ($null -eq $previous) {
@@ -48,4 +90,4 @@ try {
         $env:ESP32_API_TOKEN = $previous
     }
 }
-Write-Host "Sesion de dictado cerrada. No se modifico Sheets."
+Write-Host "Sesion cerrada. No se modifico Google Sheets."
