@@ -61,3 +61,39 @@ Solo `/api/device/v1/cloud/verify` confirma acceso y esquema real.
 Se tomó como referencia conceptual el flujo Gemini Live del archivo
 OmniBot aportado por el usuario, sin copiar su servidor local ni sus
 dependencias de robots y reconocimiento facial.
+
+## Uso en Windows PowerShell
+
+Los comandos se ejecutan **en Windows**, dentro de la carpeta
+`voice-embeding-in-databricks-for-esp32`. Copie primero las credenciales
+en el entorno del proceso (no en el repositorio): `ESP32_API_TOKEN` y, si
+el workspace lo exige, `DATABRICKS_ACCESS_TOKEN`. El primer script pide
+el token Device API de forma oculta cuando no está en el entorno e
+intenta obtener el token de Databricks del perfil CLI.
+
+```powershell
+.\scripts\Probar-Extremo3C.ps1
+.\scripts\Enviar-Voz3C.ps1 -Texto "Revisa la estrategia de la tarea 123"
+.\scripts\Enviar-Voz3C.ps1 -AudioFile "C:\grabaciones\orden.wav" -VistaPreviaIA
+.\scripts\Enviar-Voz3C.ps1 -Microfono
+.\scripts\Probar-EntregaEditor.ps1 -EjecutarPrueba
+```
+
+`-Microfono` utiliza el motor de dictado en español que Windows tenga
+instalado. `-AudioFile` sí transcribe dentro de Databricks mediante el
+modelo Gemini configurado. `-VistaPreviaIA` realiza un análisis
+adicional, opcional y sin escritura en Sheets.
+
+El diagnóstico básico ejecuta **solo GET**. Si desea confirmar que el
+ESP32 físico recibió el texto, use la prueba adicional
+`Probar-EntregaEditor.ps1`, que solicita consentimiento, envía un
+borrador con la leyenda **NO ENVIAR** y espera el ACK del panel. Una
+confirmación `delivered_to_editor` no prueba que Sheets haya cambiado:
+esa modificación exige una propuesta, aprobación humana y escritura
+del backend expresamente habilitada.
+
+**Limitaciones importantes:** la app Databricks debe haberse
+desplegado con el módulo `app/voice_3c.py` y la aplicación ESP32 debe
+ejecutar una imagen que incluya `pollVoiceDraft`. Los cambios de
+GitHub no actualizan por sí solos el backend desplegado ni la memoria
+flash del ESP32.
