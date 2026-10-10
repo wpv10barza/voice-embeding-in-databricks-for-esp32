@@ -43,6 +43,7 @@ jobs:
           foreach ($needle in @('/voice/capture/next', 'Grabar-Microfono3C.py', '/voice/transcribe', '/voice/drafts', 'delivered_to_editor')) {
             if (-not $agent.Contains($needle)) { throw "Missing panel dictation agent contract: $needle" }
           }
+          if (-not $agent.Contains('$targetDeviceId')) { throw 'Missing automatic physical panel routing' }
           if ($agent.Contains('/api/review/proposals/') -or $agent.Contains('/api/device/v1/commands')) {
             throw 'Touch microphone agent must never auto-submit or apply a command'
           }
@@ -63,7 +64,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: wpv10barza/asistente-de-databricks--erp
-          ref: 483abf8d73623c550ac64842383eb056f82e2056
+          ref: 09300d18689b32a53408f234201ec3e70017ec37
           path: cloud
       - uses: actions/setup-python@v5
         with:
@@ -76,6 +77,7 @@ jobs:
           grep -q 'voice_provider_probe' app/main.py
           grep -q 'request_windows_voice_capture' app/main.py
           grep -q 'next_windows_voice_capture' app/main.py
+          grep -q 'claim_unique_capture' app/voice_3c.py
           grep -q 'voice_available_models' app/main.py
           grep -q 'gemini-3.8-flash' app.yaml
           grep -q 'VoiceProviderError' app/voice_3c.py
