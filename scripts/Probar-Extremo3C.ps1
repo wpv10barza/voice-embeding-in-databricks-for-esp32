@@ -1,4 +1,4 @@
-# Diagnóstico de extremo a extremo, solamente GET/read-only.
+﻿# Diagnóstico de extremo a extremo, solamente GET/read-only.
 # Windows PowerShell 5.1 o PowerShell 7.
 [CmdletBinding()]
 param(
