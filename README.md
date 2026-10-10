@@ -262,3 +262,58 @@ servidor ni despliega otra app.
 Documentación: [Wispr en terminales](https://docs.wisprflow.ai/articles/6478598909-using-flow-with-linux-wsl-and-terminal-applications),
 [Gemini audio](https://ai.google.dev/gemini-api/docs/transcribe),
 [Deepgram](https://developers.deepgram.com/docs/pre-recorded-audio).
+
+
+## Solución de Gemini HTTP 503 y Wispr sin texto
+
+El error `[DATABRICKS/GEMINI] ... HTTP 503` no demuestra que la grabación
+WAV esté dañada. El backend anterior devolvía un mensaje genérico para
+cualquier fallo `google.genai.errors.APIError`; `/voice/health` solo
+verifica que la clave está configurada, no que la API funcione.
+
+**Despliegue del backend con diagnóstico Gemini** (compilación/CI
+aprobada en GitHub, pero aún necesita despliegue en tu Databricks Apps):
+
+```powershell
+databricks apps deploy asistente-cloud-erp `
+  --git-commit 8ce58259281e8bf3aedb01347f79f9ebab004ad9 `
+  --profile asistente-cloud-erp --timeout 10m
+```
+
+**Primero pruebe Gemini sin audio** desde este repositorio:
+
+```powershell
+git pull --ff-only origin main
+.\scripts\Probar-Gemini3C.ps1
+```
+
+El nuevo `POST /api/device/v1/voice/probe` hace una inferencia real corta
+y devuelve `inference_confirmed=true` solo si Gemini responde. En un
+fallo devuelve información saneada `provider_http`, `provider_status`
+y `hint`: códigos 401/403 (credenciales/permisos); 404 (modelo); 429
+(cuota); 500/503 (servicio proveedor). No incluye respuestas crudas,
+claves, audio ni contenido privado de las transcripciones. La prueba
+consume una pequeña cuota y no modifica Google Sheets.
+
+Después ejecute `./scripts/Activar-Microfono3C.ps1 -Motor Gemini`.
+Este modo primero comprueba que Gemini realmente responde, luego graba
+un WAV de 10 segundos y lo envía a Databricks. Una inferencia de texto
+aprobada **no garantiza** la transcripción del audio: la segunda prueba
+debe pasar también.
+
+**Si Wispr queda vacío en PowerShell**:
+
+1. Compruebe que Wispr Flow esté **instalado y ejecutándose**, con el
+   micrófono autorizado en Windows.
+2. Mantenga el foco en la línea
+   `WISPR FLOW - dicta aqui tu orden 3C:` y use el atajo que tenga
+   configurado Wispr (por defecto, `Ctrl+Win`).
+3. Si Wispr transcribió pero no pegó texto, use `Shift+Alt+Z` para
+   *Pegar última transcripción* en Windows, o `Shift+Alt+X` para copiarla
+   y después `Ctrl+V` en el prompt. El script permitirá un segundo
+   intento antes de cancelar sin enviar nada.
+
+Wispr solo inserta texto como cualquier aplicación de dictado. No existe
+una conexión directa de Wispr Flow a tu App de Databricks implementada
+aquí. La bandeja 3C sigue requiriendo confirmación humana y no modifica
+Google Sheets automáticamente.
