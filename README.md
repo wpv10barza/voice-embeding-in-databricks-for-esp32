@@ -367,3 +367,61 @@ Fuentes:
 https://ai.google.dev/gemini-api/docs/models/gemini-2.5-flash
 https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash
 https://ai.google.dev/gemini-api/docs/generate-content/audio
+
+
+## Dictado transcribe otra frase / ESP32 sigue queued_for_editor (video 10-10-2026)
+
+Si `Probar-Gemini3C.ps1` muestra `[PASS]`, y `Activar-Microfono3C.ps1`
+muestra un WAV de 320044 bytes y una transcripción, **Gemini funciona**
+pero eso no demuestra que el micrófono elegido haya grabado la orden
+correcta. Por ejemplo, una transcripción sobre «el micrófono de Windows»
+en vez de «cambiar la periodicidad de lubricación» puede indicar que
+se capturó audio del sistema, un tutorial o una fuente de entrada equivocada.
+
+Antes de enviar borradores, pruebe localmente:
+
+```powershell
+cd C:\Users\ASUS\erp-mantto-esp32\voice-embeding-in-databricks-for-esp32
+git -c http.version=HTTP/1.1 pull --ff-only origin main
+
+# Muestra nombre, ID y entrada predeterminada; sin usar Databricks
+.\scripts\Probar-Captura3C.ps1 -Listar
+
+# Sustituir 1 por el ID del MICROFONO, no Stereo Mix/mezcla estéreo
+.\scripts\Probar-Captura3C.ps1 -MicrofonoDispositivo 1 -Segundos 6
+```
+
+El script graba, muestra el nivel RMS, reproduce el audio localmente
+para que se escuche qué capturó realmente y borra el WAV temporal.
+No usa tokens, no consulta Databricks ni modifica Google Sheets. Si oye
+la narración de otro programa, cierre reproducción de fondo y cambie
+el dispositivo de entrada. Si oye silencio, revise el volumen y los
+permisos de micrófono de Windows.
+
+Cuando la captura sea correcta:
+
+```powershell
+.\scripts\Activar-Microfono3C.ps1 -Motor Gemini -MicrofonoDispositivo 1
+```
+
+Ahora se muestra el nombre de la fuente elegida, RMS y pico antes de
+enviar el audio a Gemini. El cliente REST decodifica la respuesta JSON
+original en UTF-8, evitando transcripciones deformadas como
+`micrÃ³fono` en Windows PowerShell 5.1. Si la transcripción sigue
+incorrecta, responda **N** a la pregunta de envío.
+
+**Problema independiente:** `queued_for_editor` significa que el backend
+tiene el borrador, pero el ESP32 no confirmó abrirlo. La última
+compilación de firmware, aun aprobada, **no equivale a instalación**
+en el dispositivo. Elija **Wi-Fi 2.4 GHz** en el firmware actualizado
+para leer la IP DHCP real; después ejecute:
+
+```powershell
+.\scripts\Diagnosticar-PanelESP32.ps1 -PanelUrl "http://IP_REAL_DEL_PANEL"
+```
+
+Compruebe `fw_commit`, `device_id`, `voice_poll_count`,
+`voice_poll_http` y `voice_ack_http`. No use literalmente
+`http://IP_DEL_ESP32`. La cola actual de Databricks es en memoria;
+replicas o reinicios pueden provocar entregas pendientes. No se envían
+órdenes finales ni cambios a Sheets sin aprobación humana.
