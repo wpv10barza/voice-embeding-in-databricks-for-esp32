@@ -53,6 +53,7 @@ function Invoke-3CRequest {
     } catch {
         $statusCode = 0
         $raw = ""
+        $errorDetailMessage = $_.ErrorDetails.Message
         if ($_.Exception.Response) {
             try { $statusCode = [int]$_.Exception.Response.StatusCode } catch {}
             try {
@@ -68,6 +69,11 @@ function Invoke-3CRequest {
             return [pscustomobject]@{ Status = 0; Data = $null; Error = "Fallo DNS/TLS/red: $($_.Exception.Message)" }
         }
     }
+    # Windows PowerShell may consume the HTTP error response stream before
+    # GetResponseStream(); ErrorDetails.Message retains JSON when available.
+    if (-not $raw -and $statusCode -ge 400 -and $null -ne $errorDetailMessage) {
+        $raw = [string]$errorDetailMessage
+    }
     $payload = $null
     if ($raw) {
         try { $payload = $raw | ConvertFrom-Json -ErrorAction Stop }
@@ -77,5 +83,26 @@ function Invoke-3CRequest {
         Status = $statusCode
         Data = $payload
         Error = if ($statusCode -ge 400) { "HTTP $statusCode" } else { "" }
+    }
+}
+
+
+function Show-3CGeminiFailure {
+    param([Parameter(Mandatory)]$Response)
+    Write-Warning ("Transcripcion Gemini fallida. HTTP Databricks: " + $Response.Status)
+    if ($null -ne $Response.Data -and $null -ne $Response.Data.detail) {
+        $detail = $Response.Data.detail
+        if ($detail -is [string]) {
+            # Previous backend returned a generic 503 with no provider details.
+            Write-Host "Backend anterior: detalle generico. Despliegue el backend con /voice/probe."
+        } elseif ($detail.error -in @("GEMINI_UPSTREAM_ERROR", "GEMINI_NOT_CONFIGURED", "GEMINI_EMPTY_RESPONSE")) {
+            Write-Host ("Codigo: " + [string]$detail.error)
+            if ($detail.provider_http) { Write-Host ("Gemini HTTP real: " + $detail.provider_http) }
+            if ($detail.provider_status) { Write-Host ("Estado Gemini: " + $detail.provider_status) }
+            if ($detail.hint) { Write-Host ("Accion sugerida: " + $detail.hint) }
+        }
+    }
+    if ($Response.Status -eq 503) {
+        Write-Host "Ejecute .\scripts\Probar-Gemini3C.ps1 para separar permiso/cuota/modelo de problemas de audio."
     }
 }
