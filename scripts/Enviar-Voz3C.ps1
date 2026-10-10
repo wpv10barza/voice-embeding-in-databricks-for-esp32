@@ -1,4 +1,4 @@
-# Send a PC audio or text draft to Databricks. Never writes Sheets.
+﻿# Send a PC audio or text draft to Databricks. Never writes Sheets.
 [CmdletBinding(DefaultParameterSetName="Text")]
 param(
     [Parameter(ParameterSetName="Text",Mandatory)][string]$Texto,
