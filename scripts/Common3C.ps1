@@ -58,8 +58,8 @@ function Invoke-3CRequest {
             $originalPosition = $rawStream.Position
             try {
                 $rawStream.Position = 0
-                $utf8Reader = New-Object System.IO.StreamReader(
-                    $rawStream, (New-Object System.Text.UTF8Encoding($false)),
+                $utf8Reader = [System.IO.StreamReader]::new(
+                    $rawStream, [System.Text.UTF8Encoding]::new($false),
                     $true, 1024, $true
                 )
                 try { $raw = $utf8Reader.ReadToEnd() }
