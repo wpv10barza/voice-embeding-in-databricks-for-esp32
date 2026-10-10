@@ -191,3 +191,74 @@ real de Gemini. Para verificar la entrega física es necesario tener
 el firmware corregido **instalado**, Wi-Fi/OAuth funcionales y el
 `device_id` correspondiente al cliente PowerShell. No confunda la
 compilación con el flasheo por COM9.
+
+
+## Motores de voz comparados (octubre 2026)
+
+Las frases incorrectas como «Tras diablo» proceden de
+`System.Speech.Recognition` de Windows, no de una inferencia Gemini.
+
+Se ofrecen tres motores con un solo script:
+
+| `-Motor` | Reconocimiento | Clave externa | Cómo envía a Databricks |
+| --- | --- | --- | --- |
+| `Gemini` (predeterminado) | Se graba WAV 16 kHz en el PC y se transcribe mediante `/api/device/v1/voice/transcribe` | Usa `GEMINI_API_KEY` **dentro de Databricks** | Resultado de transcripción → borrador 3C |
+| `Wispr` | Wispr Flow Windows dicta al campo activo `Read-Host` (atajo configurable, frecuentemente Ctrl+Win) | No hace falta API de Wispr | Texto dictado en PowerShell → borrador 3C |
+| `Windows` | Reconocedor clásico local `System.Speech` | Ninguna | Texto reconocido → borrador 3C; modo de respaldo, menor calidad observada |
+
+### Primera prueba con Gemini directamente desde el micrófono
+
+```powershell
+cd C:\Users\ASUS\erp-mantto-esp32\voice-embeding-in-databricks-for-esp32
+git pull --ff-only origin main
+
+# Instalar solamente una vez la biblioteca de captura del microfono.
+py -m pip install sounddevice
+
+.\scripts\Activar-Microfono3C.ps1 -Motor Gemini
+```
+
+Al pulsar Enter, `Grabar-Microfono3C.py` graba 10 s de audio mono a
+16 kHz y lo guarda **temporalmente** en el PC; `Enviar-Voz3C.ps1`
+lo envía por HTTPS a tu aplicación Databricks. La app pide una transcripción
+real a Gemini (el modelo actual es `VOICE_GEMINI_MODEL=gemini-2.5-flash`),
+devuelve el texto y solicita revisión antes de transmitir el borrador al
+ESP32. El WAV temporal se borra al finalizar incluso si hay un error.
+No se usan ni el servicio clásico de reconocimiento Windows ni el
+micrófono del ESP32.
+
+Si aparece «Micrófono no disponible», revise en Configuración de Windows
+los permisos de micrófono de las aplicaciones de escritorio y su
+dispositivo de entrada predeterminado. Opcionalmente se puede indicar
+`-MicrofonoDispositivo N` para un índice de entrada PortAudio válido.
+
+### Usar Wispr Flow como opción intermedia
+
+Instalar [Wispr Flow para Windows](https://wisprflow.ai/downloads).
+La documentación de Wispr describe un **dictado que pega texto en la
+aplicación activa** (incluida una terminal). No se identificó una API
+pública oficial de transcripción para llamarla directamente desde la app
+Databricks. La integración es por el texto que Wispr inserta en PowerShell.
+
+```powershell
+.\scripts\Activar-Microfono3C.ps1 -Motor Wispr
+```
+
+Pulse **Enter** para abrir el campo de dictado, mantenga el foco en
+esa línea, active la combinación de Wispr Flow (su atajo configurado),
+hable y termine el dictado. Compruebe la frase que aparece y pulse
+**Enter**. PowerShell la enviará como borrador al backend, solicitando
+primero confirmación. No se ejecutan órdenes 3C automáticamente ni se
+escribe en Google Sheets.
+
+**Modelos alternativos por API:** Deepgram Nova-3 y OpenAI
+`gpt-4o-transcribe` disponen de APIs de transcripción utilizables desde
+Databricks pero requerirían otra clave. El especializado
+`gemini-3.5-transcribe` también está documentado; requiere la nueva
+Interactions API y pruebas de compatibilidad del SDK antes de habilitarlo
+en producción. Esta actualización no cambia automáticamente el modelo
+servidor ni despliega otra app.
+
+Documentación: [Wispr en terminales](https://docs.wisprflow.ai/articles/6478598909-using-flow-with-linux-wsl-and-terminal-applications),
+[Gemini audio](https://ai.google.dev/gemini-api/docs/transcribe),
+[Deepgram](https://developers.deepgram.com/docs/pre-recorded-audio).
