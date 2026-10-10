@@ -31,6 +31,7 @@ Write-Host "Consultas recientes recibidas: $($j.panel_seen_recently)"
 Write-Host "Segundos desde ultima consulta: $($j.seconds_since_panel_poll)"
 Write-Host "Borradores pendientes: $($j.queued_for_editor)"
 Write-Host "Borradores entregados: $($j.delivered_to_editor)"
+if ($null -ne $j.capture_status) { Write-Host "Ultima solicitud de microfono Windows: $($j.capture_status)" }
 if ($j.panel_seen_recently -eq $true) {
     Write-Host "[PASS] Databricks ha recibido consultas HTTPS recientes del ESP32." -ForegroundColor Green
 } else {
