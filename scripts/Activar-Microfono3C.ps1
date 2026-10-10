@@ -34,6 +34,16 @@ if ($Motor -eq "Gemini") {
     if (-not (Get-Command py -ErrorAction SilentlyContinue)) {
         throw "Necesitas el lanzador Python de Windows 'py' para grabar WAV. No se usa el reconocedor de voz Windows."
     }
+    Write-Host "[GEMINI] Validando inferencia real de modelo antes de grabar (puede consumir cuota)..."
+    $probe = Invoke-3CRequest -Uri "$base/api/device/v1/voice/probe" -Headers $headers -Method POST
+    if ($probe.Status -eq 404) {
+        throw "Falta el endpoint /voice/probe. Despliegue el backend Gemini actualizado antes de grabar."
+    }
+    if ($probe.Status -ne 200 -or -not $probe.Data.inference_confirmed) {
+        Show-3CGeminiFailure -Response $probe
+        throw "Gemini no esta listo para una inferencia real. No se iniciara grabacion."
+    }
+    Write-Host "[GEMINI] INFERENCIA REAL OK: $($probe.Data.model)" -ForegroundColor Green
     Write-Host "[GEMINI] El PC graba WAV y Databricks hace la transcripcion real."
     Write-Host "[PRIMER USO] Si falta sounddevice: py -m pip install sounddevice"
 } elseif ($Motor -eq "Wispr") {
