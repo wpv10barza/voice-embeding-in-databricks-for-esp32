@@ -62,7 +62,8 @@ if ($PSCmdlet.ParameterSetName -eq "Microphone") {
     Write-Host "[DATABRICKS/GEMINI] Procesando audio y transcribiendo..."
     $r = Invoke-3CRequest -Uri "$base/api/device/v1/voice/transcribe" -Headers $headers -Method POST -Body $body
     if ($r.Status -ne 200 -or -not $r.Data.transcript) {
-        throw "Transcripción Databricks fallida (HTTP $($r.Status))."
+        Show-3CGeminiFailure -Response $r
+        throw "Transcripción Gemini no disponible (HTTP $($r.Status)). Comprueba diagnóstico con Probar-Gemini3C.ps1."
     }
     $Texto = [string]$r.Data.transcript
     Write-Host "[GEMINI] Transcripcion recibida: $Texto"
