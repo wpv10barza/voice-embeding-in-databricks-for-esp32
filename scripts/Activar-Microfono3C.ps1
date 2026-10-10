@@ -45,6 +45,10 @@ if ($Motor -eq "Gemini") {
     }
     Write-Host "[GEMINI] INFERENCIA REAL OK: $($probe.Data.model)" -ForegroundColor Green
     Write-Host "[GEMINI] El PC graba WAV y Databricks hace la transcripcion real."
+    Write-Host "[MIC] Comprueba la fuente real antes de dictar:"
+    Write-Host "  .\scripts\Probar-Captura3C.ps1 -Listar"
+    Write-Host "  .\scripts\Probar-Captura3C.ps1 -MicrofonoDispositivo ID"
+    Write-Host "[MIC] Seleccion: $($(if ($MicrofonoDispositivo -ge 0) { $MicrofonoDispositivo } else { 'predeterminado de Windows' }))"
     Write-Host "[PRIMER USO] Si falta sounddevice: py -m pip install sounddevice"
 } elseif ($Motor -eq "Wispr") {
     Write-Host "[WISPR FLOW] Inicia Wispr Flow en Windows y manten el foco en la consola al dictar."
