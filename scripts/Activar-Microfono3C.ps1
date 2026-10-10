@@ -38,8 +38,11 @@ if ($Motor -eq "Gemini") {
     Write-Host "[PRIMER USO] Si falta sounddevice: py -m pip install sounddevice"
 } elseif ($Motor -eq "Wispr") {
     Write-Host "[WISPR FLOW] Inicia Wispr Flow en Windows y manten el foco en la consola al dictar."
-    Write-Host "Activa Wispr con Ctrl+Win (si tienes el atajo predeterminado) y comprueba el texto antes de confirmar."
-    Write-Host "Wispr pega texto en PowerShell. No se usa una API Wispr en Databricks."
+    Write-Host "Activa Wispr con Ctrl+Win (atajo predeterminado, puede haber cambiado)."
+    Write-Host "Si el dictado no aparece: Shift+Alt+Z = pegar ultima transcripcion (Windows)."
+    Write-Host "Alternativa: Shift+Alt+X = copiar ultima transcripcion, luego Ctrl+V."
+    Write-Host "PowerShell espera TEXTO PEGADO; NO graba ni transcribe audio usando Wispr."
+    Write-Host "Wispr debe estar instalado y ejecutandose; no se usa API Wispr en Databricks."
 } else {
     Write-Warning "Se usa el reconocedor local de Windows que genero transcripciones incorrectas."
 }
@@ -55,8 +58,14 @@ try {
                 Write-Host "En el siguiente prompt, use el atajo de Wispr Flow; revise la frase y pulse ENTER."
                 $dictado = Read-Host "WISPR FLOW - dicta aqui tu orden 3C"
                 if ([string]::IsNullOrWhiteSpace($dictado)) {
-                    Write-Warning "No se recibio texto de Wispr; no se enviara nada."
-                    continue
+                    Write-Warning "Wispr no inserto texto. No significa que Databricks este caido."
+                    Write-Host "Comprueba que Wispr Flow este ABIERTO y que el cursor este en el prompt."
+                    Write-Host "Prueba Shift+Alt+Z para pegar el ultimo dictado, o Shift+Alt+X seguido de Ctrl+V."
+                    $dictado = Read-Host "RECUPERAR WISPR - pega la frase aqui (ENTER vacio para cancelar)"
+                    if ([string]::IsNullOrWhiteSpace($dictado)) {
+                        Write-Host "Cancelado; no se envio ningun borrador."
+                        continue
+                    }
                 }
                 Write-Host "[WISPR] Texto capturado: $dictado"
                 & (Join-Path $PSScriptRoot "Enviar-Voz3C.ps1") -Texto $dictado -AppUrl $base -Profile $Profile -DeviceId $DeviceId -EsperarEntrega -EsperaSegundos $EsperaSegundos
