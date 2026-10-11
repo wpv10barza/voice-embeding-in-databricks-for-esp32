@@ -31,6 +31,11 @@ jobs:
         shell: pwsh
         run: |
           python tests/test_microphone_capture.py
+      - name: Validate Wispr Flow Windows GUI without starting microphone or Databricks
+        shell: pwsh
+        run: |
+          python tests/test_wispr_gui.py
+          python -m py_compile scripts/DictarPC3C-Wispr.py
       - name: Check voice provider selection is explicit
         shell: pwsh
         run: |
