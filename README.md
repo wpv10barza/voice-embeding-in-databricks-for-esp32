@@ -8,6 +8,44 @@ sus pruebas. Los endpoints desplegables viven en el backend Databricks,
 porque Databricks Apps despliega **un repositorio fuente por aplicación**.
 No se habilita un segundo runtime ni un backend LAN.
 
+## NUEVO: Wispr Flow sin PowerShell ni Gemini
+
+El dictado diario ahora se hace con Wispr Flow de Windows. Abre la ventana
+de escritorio haciendo doble clic en scripts/ABRIR-DICTAR-PC-3C.vbs
+(se requiere Python 3 instalado). Si no abre, ejecuta la alternativa
+scripts/ABRIR-DICTAR-PC-3C.cmd para ver los errores de lanzamiento.
+
+1. Mantener Wispr Flow original iniciado y con permiso de microfono.
+2. En DICTAR PC 3C, revisar el device_id real del ESP32, pulsar CONECTAR
+   e introducir ESP32_API_TOKEN en la ventana oculta. El puente recupera
+   OAuth mediante Databricks CLI, si la App lo requiere.
+3. Pulsar ACTIVAR ENVIO AUTOMATICO y dejar el cursor dentro del campo
+   de texto. Mantener Ctrl + Win para hablar y soltar para terminar.
+   Ctrl + Win + Espacio habilita el modo manos libres (toggle).
+4. Wispr inserta el texto en la ventana; tras unos 2 segundos de
+   estabilidad se envia SOLO un borrador a Databricks, no la orden final.
+5. El ESP32 debe mostrar EDITAR ORDEN 3C y solicitar confirmacion humana.
+   No se modifica Google Sheets de forma automatica.
+6. Pulsar DESACTIVAR ENVIO para detener el puente; Wispr sigue abierto
+   y se puede usar en cualquier otra aplicacion.
+
+Wispr Flow no admite Ctrl solo como atajo en Windows. Puedes configurar
+otra combinacion permitida en Settings -> General -> Shortcuts. Para
+recuperar una transcripcion que no se pego, con el cursor en el campo
+presiona Shift + Alt + Z (Pegar ultima transcripcion).
+
+El puente NO usa el microfono, la API privada de Wispr, Gemini,
+System.Speech ni una escucha global del portapapeles; recibe texto
+por el campo enfocado. No persiste credenciales. queued_for_editor
+sin delivered_to_editor significa que falta confirmar el ESP32: revisar
+firmware y Device ID, no repetir comandos.
+
+Guias originales:
+https://docs.wisprflow.ai/articles/6409258247-starting-your-first-dictation
+https://docs.wisprflow.ai/articles/2612050838-Supported-%26-Unsupported-Keyboard-Hotkey-Shortcuts
+
+---
+
 ## Flujo
 
 `Archivo WAV/MP3 o micrófono del PC → PowerShell → Gemini en Databricks
