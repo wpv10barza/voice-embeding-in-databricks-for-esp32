@@ -1,4 +1,4 @@
-# Voz 3C — Windows PowerShell → Databricks → ESP32
+# Voz 3C — Wispr Flow Windows / PowerShell opcional → Databricks → ESP32
 
 Módulo complementario del [backend Databricks](https://github.com/wpv10barza/asistente-de-databricks--erp)
 y del [firmware ESP32](https://github.com/wpv10barza/erp-mantto-esp32).
