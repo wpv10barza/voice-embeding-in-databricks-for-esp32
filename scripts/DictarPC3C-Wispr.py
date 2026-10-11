@@ -264,8 +264,9 @@ class DictarPC3C:
              "text": text},
         )
 
-    def _check_pending(self, draft: str) -> dict:
-        device = urllib.parse.quote(self.device_var.get().strip(), safe="")
+    def _check_pending(self, draft: str, device_id: str) -> dict:
+        # Tk variables must be read only on the UI thread.
+        device = urllib.parse.quote(device_id, safe="")
         draft = urllib.parse.quote(draft, safe="")
         return call_cloud(
             "/api/device/v1/voice/drafts/" + draft + "?device_id=" + device,
@@ -347,7 +348,8 @@ class DictarPC3C:
                 if not hasattr(self, "_last_poll") or now_poll() - self._last_poll > 3.5:
                     self._last_poll = now_poll()
                     self.busy = True
-                    self.submit_thread("poll", self._check_pending, self.pending_id)
+                    self.submit_thread("poll", self._check_pending,
+                                       self.pending_id, self.device_var.get().strip())
         self.root.after(350, self.tick)
 
     def close(self) -> None:
