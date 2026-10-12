@@ -533,3 +533,33 @@ El agente Windows admite autodeteccion de un unico panel que haya pulsado DICTAR
     .\scripts\Escuchar-BotonESP32.ps1 -Iniciar -MicrofonoDispositivo 1
 
 No requiere escribir el device_id predeterminado en la consola o en la pantalla. Databricks entrega al agente el device_id autenticado incluido en la peticion de captura; ese mismo ID se utiliza para encolar y consultar el borrador. Con dos dispositivos solicitando a la vez, se rechaza el emparejamiento automatico (HTTP 409); seleccione -DeviceId explicitamente. El agente debe estar voluntariamente abierto, autenticado y el backend actualizado.
+
+
+## Un solo comando para encender Databricks y usar el ultimo MAIN
+
+`scripts/Encender-Databricks-Main.ps1` consulta el **HEAD remoto de
+`main` del backend `wpv10barza/asistente-de-databricks--erp`
+(no el main del firmware ESP32), imprime el SHA completo, comprueba que
+`asistente-cloud-erp` esta asociada a ese repositorio, la
+enciende mediante `databricks apps start` si esta detenida y despliega
+con `databricks apps deploy --git-commit` solamente cuando cambia
+el commit. Si ya ejecuta ese commit no redepliega.
+
+Desde PowerShell en la carpeta del repositorio, ejecuta **una sola linea**:
+
+```powershell
+.\scripts\Encender-Databricks-Main.ps1
+```
+
+Opciones: `-SoloMostrar` (ver SHA sin iniciar nada),
+`-SoloIniciar` (encender sin desplegar otra version),
+`-ForzarDespliegue` (redeploy del mismo commit) y
+`-AbrirApp` (abrir la URL de Databricks Apps al terminar).
+Alternativa con doble clic: `scripts/ABRIR-DATABRICKS-MAIN.cmd`.
+
+Requisitos: Databricks CLI conectada con el perfil
+`asistente-cloud-erp` y acceso HTTPS a GitHub.
+Si la API de GitHub falla, intenta `git ls-remote` con HTTP/1.1.
+Si ambas consultas fallan, no despliega un SHA antiguo ni inventado.
+El script NO flashea ESP32, NO escribe en Google Sheets y NO expone tokens.
+Encender la app no implica encender todo el workspace o clusters de Databricks.
