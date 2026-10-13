@@ -38,6 +38,18 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - name: Verificar recuperacion Git con log (solo codigo)
+        working-directory: tools/drive-exportador
+        run: |
+          set -euo pipefail
+          mkdir -p logs_ci
+          {
+            date -u '+UTC=%Y-%m-%dT%H:%M:%SZ'
+            git -C ../.. rev-parse --abbrev-ref HEAD
+            git -C ../.. fetch origin "$GITHUB_REF_NAME"
+            git -C ../.. pull --ff-only origin "$GITHUB_REF_NAME"
+            git -C ../.. log -1 --format='COMMIT=%H%nASUNTO=%s'
+          } 2>&1 | tee logs_ci/git_pull_ci.log
       - name: Probar analizador e inventario simulado SIN credenciales
         working-directory: tools/drive-exportador
         run: |
