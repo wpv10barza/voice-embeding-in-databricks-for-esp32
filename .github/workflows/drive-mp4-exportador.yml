@@ -1,0 +1,118 @@
+name: URP - Exportador MP4 2020-2025 (streaming)
+
+on:
+  push:
+    branches:
+      - feature/exportador-mp4-drive-2020-2025
+    paths:
+      - 'tools/drive-exportador/**'
+      - '.github/workflows/drive-mp4-exportador.yml'
+  workflow_dispatch:
+    inputs:
+      mes:
+        description: 'inventario o YYYY-MM (solo un mes por ejecucion)'
+        required: true
+        default: 'inventario'
+        type: string
+      simulacion:
+        description: 'No unir ni subir un 7z'
+        required: true
+        default: true
+        type: boolean
+      max_gb:
+        description: 'Limite GiB de originales por mes'
+        required: true
+        default: '6'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mp4-drive-urp-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validar_codigo:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probar analizador e inventario simulado SIN credenciales
+        working-directory: tools/drive-exportador
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -v
+          python3 exportador_cloud.py --mes inventario --dry-run --fixture-json tests/fixture_lsjson.json --min-videos 3 --logs logs_ci
+          grep -q 'INVENTARIO_FINALIZADO' logs_ci/estado.txt
+          grep -q '2025-10' logs_ci/resumen_meses.csv
+      - name: Logs de la prueba (solo datos sintéticos)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-ci-exportador-${{ github.run_id }}
+          path: tools/drive-exportador/logs_ci/
+          retention-days: 14
+          if-no-files-found: warn
+
+  aviso_repositorio_publico:
+    if: ${{ github.event_name == 'workflow_dispatch' && !github.event.repository.private }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Bloquear procesamiento de Drive privado en repo público
+        run: |
+          echo 'BLOQUEADO_REPO_PUBLICO: no se usaron secretos ni se inventario Drive.'
+          echo 'Publique el exportador en un repositorio PRIVADO y configure RCLONE_CONFIG_B64.'
+
+  procesar_drive:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.repository.private }}
+    needs: validar_codigo
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependencias de procesamiento
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq rclone ffmpeg p7zip-full
+          rclone version | head -1
+          ffmpeg -version | head -1
+      - name: Configurar rclone de la cuenta URP
+        env:
+          RCLONE_CONFIG_B64: ${{ secrets.RCLONE_CONFIG_B64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RCLONE_CONFIG_B64:-}" ]; then echo 'BLOQUEADO_SIN_SECRET_RCLONE_CONFIG_B64'; exit 2; fi
+          printf '%s' "$RCLONE_CONFIG_B64" | base64 --decode > "$RUNNER_TEMP/rclone.conf"
+          chmod 600 "$RUNNER_TEMP/rclone.conf"
+          echo "RCLONE_CONFIG=$RUNNER_TEMP/rclone.conf" >> "$GITHUB_ENV"
+          RCLONE_CONFIG="$RUNNER_TEMP/rclone.conf" rclone listremotes | grep -Fx 'urp:'
+      - name: Inventario completo o unión mensual con HTTP Range
+        working-directory: tools/drive-exportador
+        env:
+          MES: ${{ inputs.mes }}
+          SIMULACION: ${{ inputs.simulacion }}
+          MAX_GB: ${{ inputs.max_gb }}
+        run: |
+          set -euo pipefail
+          mkdir -p logs
+          ARGS=(--mes "$MES" --max-source-gb "$MAX_GB" --logs logs)
+          if [ "$SIMULACION" = true ]; then ARGS+=(--dry-run); fi
+          python3 exportador_cloud.py "${ARGS[@]}"
+      - name: Guardar logs en Drive sin borrar originales
+        if: always()
+        working-directory: tools/drive-exportador
+        env:
+          MES: ${{ inputs.mes }}
+        run: |
+          if [ -f "${RCLONE_CONFIG:-/no-existe}" ]; then
+            rclone copy logs "urp:Videos_Unidos_2020_2025_7z/logs/${MES}_${GITHUB_RUN_ID}" --retries 3 || true
+          fi
+      - name: Descargar logs desde Actions
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-drive-exportador-${{ github.run_id }}
+          path: tools/drive-exportador/logs/
+          retention-days: 14
+          if-no-files-found: warn

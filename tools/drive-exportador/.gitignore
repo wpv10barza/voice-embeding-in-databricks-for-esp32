@@ -1,0 +1,8 @@
+logs/
+logs_*/
+*.7z
+*.mp4
+rclone.conf
+*.token
+__pycache__/
+*.pyc
