@@ -1,0 +1,105 @@
+name: URP a DRIVE 2 - videos anuales verificados
+
+on:
+  push:
+    branches: [feature/exportador-mp4-drive-2020-2025]
+    paths:
+      - 'tools/drive-exportador/trasladar_anio.py'
+      - 'tools/drive-exportador/tests/test_trasladar_anio.py'
+      - '.github/workflows/drive-video-anual-migracion.yml'
+  workflow_dispatch:
+    inputs:
+      anio:
+        description: 'Un solo año (auto escoge el lote más cercano a 10 GB)'
+        type: choice
+        required: true
+        default: '2021'
+        options: ['2021', 'auto', '2020', '2022', '2023', '2024']
+      ejecutar:
+        description: 'Desactivado = inventario; activado = copia real'
+        type: boolean
+        required: true
+        default: false
+      eliminar_al_final:
+        description: 'Eliminación definitiva solamente tras comprobar TODO el lote'
+        type: boolean
+        required: true
+        default: true
+      limite_gb:
+        description: 'Máximo 10 GB decimales (estrictamente menor)'
+        type: string
+        required: true
+        default: '10'
+
+permissions:
+  contents: read
+concurrency:
+  group: drive-anual-migracion-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pruebas sintéticas sin datos privados
+        run: |
+          python3 -m py_compile tools/drive-exportador/trasladar_anio.py
+          python3 -m unittest discover -s tools/drive-exportador/tests -p 'test_trasladar_anio.py' -v
+
+  bloqueo_publico:
+    if: ${{ github.event_name == 'workflow_dispatch' && !github.event.repository.private }}
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          echo 'BLOQUEADO_REPOSITORIO_PUBLICO: no se transfiere ni se elimina ningún video.'
+          echo 'Se necesita repositorio PRIVADO con RCLONE_CONFIG_B64.'
+
+  migracion:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.repository.private }}
+    needs: pruebas
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    env:
+      GITHUB_REPOSITORY_PRIVATE: ${{ github.event.repository.private }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar rclone
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq rclone
+      - name: Preparar remotos URP y DRIVE 2
+        env:
+          RCLONE_CONFIG_B64: ${{ secrets.RCLONE_CONFIG_B64 }}
+        run: |
+          set -euo pipefail
+          test -n "${RCLONE_CONFIG_B64:-}" || { echo 'FALTA_SECRET_RCLONE_CONFIG_B64'; exit 2; }
+          printf '%s' "$RCLONE_CONFIG_B64" | base64 --decode > "$RUNNER_TEMP/rclone.conf"
+          chmod 600 "$RUNNER_TEMP/rclone.conf"
+          echo "RCLONE_CONFIG=$RUNNER_TEMP/rclone.conf" >> "$GITHUB_ENV"
+          RCLONE_CONFIG="$RUNNER_TEMP/rclone.conf" rclone listremotes | grep -Fx 'urp:'
+          RCLONE_CONFIG="$RUNNER_TEMP/rclone.conf" rclone listremotes | grep -Fx 'drive2:'
+      - name: Inventariar, transferir, verificar y borrar solo al final
+        working-directory: tools/drive-exportador
+        env:
+          ANIO: ${{ inputs.anio }}
+          EJECUTAR: ${{ inputs.ejecutar }}
+          ELIMINAR: ${{ inputs.eliminar_al_final }}
+          LIMITE_GB: ${{ inputs.limite_gb }}
+        run: |
+          set -euo pipefail
+          ARG=(--anio "$ANIO" --limite-gb "$LIMITE_GB" --logs "logs_anual/${GITHUB_RUN_ID}")
+          if [ "$EJECUTAR" = true ]; then
+            ARG+=(--ejecutar)
+            if [ "$ELIMINAR" = true ]; then ARG+=(--eliminar-al-final); fi
+          fi
+          python3 trasladar_anio.py "${ARG[@]}"
+      - name: Logs privados y manifiesto
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migracion-drive-${{ github.run_id }}
+          path: tools/drive-exportador/logs_anual/
+          retention-days: 30
+          if-no-files-found: warn
