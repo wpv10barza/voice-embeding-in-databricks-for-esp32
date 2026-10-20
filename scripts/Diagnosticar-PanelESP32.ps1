@@ -3,7 +3,7 @@
 [CmdletBinding()]
 param(
     [string]$PanelUrl = "",
-    [string]$ExpectedDeviceId = "panel-4848s040-3c-01",
+    [string]$ExpectedDeviceId = "panel-4848s040-3c-ota-2f26ec3f",
     [string]$ExpectedCommit = "",
     [int]$WaitSeconds = 12
 )
