@@ -8,7 +8,7 @@ param(
     [ValidateSet("Gemini", "Wispr", "Windows")][string]$Motor = "Gemini",
     [string]$AppUrl = "https://asistente-cloud-erp-7474651957738908.aws.databricksapps.com",
     [string]$Profile = "asistente-cloud-erp",
-    [string]$DeviceId = "panel-4848s040-3c-01",
+    [string]$DeviceId = "panel-4848s040-3c-ota-2f26ec3f",
     [ValidateRange(5, 25)][int]$TiempoMaxSegundos = 10,
     [ValidateRange(10, 180)][int]$EsperaSegundos = 60,
     [int]$MicrofonoDispositivo = -1
