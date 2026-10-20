@@ -25,7 +25,7 @@ from tkinter import messagebox, scrolledtext, simpledialog, ttk
 
 APP_URL = "https://asistente-cloud-erp-7474651957738908.aws.databricksapps.com"
 PROFILE = "asistente-cloud-erp"
-DEFAULT_DEVICE = "panel-4848s040-3c-01"
+DEFAULT_DEVICE = "panel-4848s040-3c-ota-2f26ec3f"
 QUIET_SECONDS = 2.2
 ACK_TIMEOUT = 80
 MAX_EDITOR_BYTES = 230
