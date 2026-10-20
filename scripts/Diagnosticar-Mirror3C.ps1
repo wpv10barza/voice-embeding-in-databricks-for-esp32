@@ -4,7 +4,7 @@
 param(
     [string]$AppUrl = "https://asistente-cloud-erp-7474651957738908.aws.databricksapps.com",
     [string]$Profile = "asistente-cloud-erp",
-    [string]$DeviceId = "panel-4848s040-3c-01"
+    [string]$DeviceId = "panel-4848s040-3c-ota-2f26ec3f"
 )
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "Common3C.ps1")
