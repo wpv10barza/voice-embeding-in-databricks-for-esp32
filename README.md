@@ -68,7 +68,7 @@ disponibilidad del módulo de voz, sin cambiar una celda.
 `-Texto "Revisar..."`, `-AudioFile .\orden.wav` (transcribe en
 Databricks) o `-Microfono` (dictado Windows compatible, si existe).
 Muestra la transcripción y exige confirmación antes de crear un
-borrador destinado a `panel-4848s040-3c-01`.
+borrador destinado por defecto a `panel-4848s040-3c-ota-2f26ec3f` (panel real; override explícito con `-DeviceId`).
 
 En equipos con idioma español no instalado, la opción `-Microfono`
 puede no estar disponible; grabe un archivo WAV con Grabadora de
